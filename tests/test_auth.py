@@ -1,6 +1,8 @@
 from datetime import timedelta
 from unittest.mock import patch, MagicMock
 import json
+import os
+from dotenv import load_dotenv
 from tests import (
     BaseTestCase, 
     create_test_headers,
@@ -10,6 +12,9 @@ from tests import (
     MOCK_GOOGLE_USERINFO
 )
 from flask_jwt_extended import create_access_token, create_refresh_token
+
+# Load environment variables from .env file
+load_dotenv()
 
 class TestAuth(BaseTestCase):
     """Test auth blueprint."""
@@ -158,6 +163,7 @@ class TestAuth(BaseTestCase):
             data = get_json_response(response)
             self.assertIn('msg', data)
             self.assertIn('Token has expired', data['msg'])
+
     def test_refresh_with_access_token(self):
         """Test refresh endpoint with access token instead of refresh token."""
         with self.app.test_request_context():
