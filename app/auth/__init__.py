@@ -1,38 +1,47 @@
-# auth.py
-from flask import Blueprint, request, jsonify, redirect, url_for, current_app
-import requests
+# app/auth/__init__.py
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
     create_access_token, 
-    create_refresh_token, 
+    create_refresh_token,
     jwt_required, 
-    get_jwt_identity
+    get_jwt_identity,
+    verify_jwt_in_request
 )
+from flask_jwt_extended.exceptions import InvalidHeaderError, NoAuthorizationError
+from jwt.exceptions import InvalidTokenError
+import requests
 from oauthlib.oauth2 import WebApplicationClient
 import json
-from datetime import timedelta
-import os
+from functools import wraps
 
 auth_bp = Blueprint('auth', __name__)
 
-# Google OAuth 2.0 settings
-GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
-GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
-ODOO_URL = os.getenv('ODOO_URL', 'http://localhost:8069')
-ODOO_DB = os.getenv('ODOO_DB', 'mydb')
 
-client = WebApplicationClient(GOOGLE_CLIENT_ID)
+def get_google_client():
+    """Get Google OAuth client instance"""
+    return WebApplicationClient(current_app.config['GOOGLE_CLIENT_ID'])
 
 def get_google_provider_cfg():
     return requests.get(GOOGLE_DISCOVERY_URL).json()
 
+def jwt_required_with_invalid_handling(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            verify_jwt_in_request()
+            return fn(*args, **kwargs)
+        except (InvalidHeaderError, NoAuthorizationError, InvalidTokenError):
+            return jsonify({"msg": "Invalid or missing token"}), 401
+    return wrapper
+
 @auth_bp.route("/login/google")
 def google_login():
     """Initiates the Google OAuth2 login flow"""
+    client = get_google_client()
     google_provider_cfg = get_google_provider_cfg()
     authorization_endpoint = google_provider_cfg["authorization_endpoint"]
 
-    # Prepare the Google login URL
     request_uri = client.prepare_request_uri(
         authorization_endpoint,
         redirect_uri=request.base_url + "/callback",
@@ -43,6 +52,7 @@ def google_login():
 @auth_bp.route("/login/google/callback")
 def google_callback():
     """Handles the Google OAuth2 callback"""
+    client = get_google_client()
     code = request.args.get("code")
     google_provider_cfg = get_google_provider_cfg()
     token_endpoint = google_provider_cfg["token_endpoint"]
@@ -59,7 +69,8 @@ def google_callback():
         token_url,
         headers=headers,
         data=body,
-        auth=(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET),
+        auth=(current_app.config['GOOGLE_CLIENT_ID'], 
+              current_app.config['GOOGLE_CLIENT_SECRET']),
     )
 
     client.parse_request_body_response(json.dumps(token_response.json()))
@@ -74,44 +85,17 @@ def google_callback():
         email = userinfo_response.json()["email"]
         name = userinfo_response.json()["name"]
         
-        # Authenticate with Odoo
-        odoo_auth_url = f"{ODOO_URL}/api/auth/google"
-        odoo_payload = {
-            'jsonrpc': '2.0',
-            'method': 'call',
-            'params': {
-                'db': ODOO_DB,
-                'google_id': google_id,
-                'email': email,
-                'name': name
-            }
-        }
+        # Create JWT tokens
+        access_token = create_access_token(identity=email)
+        refresh_token = create_refresh_token(identity=email)
         
-        try:
-            response = requests.post(odoo_auth_url, json=odoo_payload)
-            result = response.json()
-            
-            if 'error' not in result.get('result', {}):
-                user_id = result['result']['user_id']
-                odoo_token = result['result']['token']
-                
-                # Create JWT tokens
-                access_token = create_access_token(
-                    identity=user_id,
-                    additional_claims={'odoo_token': odoo_token}
-                )
-                refresh_token = create_refresh_token(identity=user_id)
-                
-                return jsonify({
-                    'access_token': access_token,
-                    'refresh_token': refresh_token,
-                    'user_id': user_id,
-                    'name': name,
-                    'email': email
-                }), 200
-                
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'user_id': google_id,
+            'name': name,
+            'email': email
+        }), 200
             
     return jsonify({'error': 'Google authentication failed'}), 401
 
@@ -119,20 +103,20 @@ def google_callback():
 @jwt_required(refresh=True)
 def refresh():
     """Refresh access token"""
-    current_user_id = get_jwt_identity()
-    access_token = create_access_token(identity=current_user_id)
+    current_user = get_jwt_identity()
+    access_token = create_access_token(identity=current_user)
     return jsonify({'access_token': access_token}), 200
 
 @auth_bp.route('/verify', methods=['GET'])
 @jwt_required()
 def verify_token():
     """Verify access token"""
-    current_user_id = get_jwt_identity()
-    return jsonify({'valid': True, 'user_id': current_user_id}), 200
+    current_user = get_jwt_identity()
+    return jsonify({'valid': True, 'user_id': current_user}), 200
 
 @auth_bp.route('/test', methods=['GET'])
-@jwt_required()
+@jwt_required_with_invalid_handling
 def test_auth():
     """Test protected endpoint"""
-    current_user_id = get_jwt_identity()
-    return jsonify({'message': 'Protected endpoint', 'user_id': current_user_id}), 200
+    current_user = get_jwt_identity()
+    return jsonify({'message': 'Protected endpoint', 'user_id': current_user}), 200

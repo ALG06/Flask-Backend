@@ -1,23 +1,25 @@
 # config.py
-from dotenv import load_dotenv
 import os
-from datetime import timedelta  # Add this import
-
-load_dotenv()
+from datetime import timedelta
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///app.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
-    # Google OAuth settings
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key')
     GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
     GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
-    
-    # Odoo settings
     ODOO_URL = os.environ.get('ODOO_URL', 'http://localhost:8069')
-    
-    # JWT settings
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY')
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
-    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
+    ODOO_DB = os.environ.get('ODOO_DB', 'mydb')
+
+class TestConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    JWT_SECRET_KEY = 'test-secret-key'
+    GOOGLE_CLIENT_ID = 'test-client-id'
+    GOOGLE_CLIENT_SECRET = 'test-client-secret'
+    WTF_CSRF_ENABLED = False
+    JWT_TOKEN_LOCATION = ['headers']
+    JWT_HEADER_NAME = 'Authorization'
+    JWT_HEADER_TYPE = 'Bearer'
+    PROPAGATE_EXCEPTIONS = True
