@@ -1,63 +1,18 @@
-import unittest
+from datetime import timedelta
 from unittest.mock import patch, MagicMock
 import json
-from app import create_app, db
+from tests import (
+    BaseTestCase, 
+    create_test_headers,
+    get_json_response,
+    MOCK_GOOGLE_PROVIDER_CONFIG,
+    MOCK_GOOGLE_TOKEN_RESPONSE,
+    MOCK_GOOGLE_USERINFO
+)
 from flask_jwt_extended import create_access_token, create_refresh_token
-from config import Config
-import os
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'  # Add this line
 
-class TestConfig(Config):
-    TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
-    JWT_SECRET_KEY = 'test-secret-key'
-    GOOGLE_CLIENT_ID = 'test-client-id'
-    GOOGLE_CLIENT_SECRET = 'test-client-secret'
-    WTF_CSRF_ENABLED = False
-    JWT_TOKEN_LOCATION = ['headers']
-    JWT_HEADER_NAME = 'Authorization'
-    JWT_HEADER_TYPE = 'Bearer'
-    PROPAGATE_EXCEPTIONS = True
-    OAUTHLIB_INSECURE_TRANSPORT = True  # Add this line
-
-class TestAuth(unittest.TestCase):
-    def setUp(self):
-        """Set up test client and other test variables."""
-        self.app = create_app(TestConfig)
-        
-        # Add this line to allow OAuth2 over HTTP in testing
-        self.app.config['OAUTHLIB_INSECURE_TRANSPORT'] = True
-        
-        self.client = self.app.test_client()
-        self.app_context = self.app.app_context()
-        self.app_context.push()
-        
-        # Create all database tables
-        db.create_all()
-        
-        # Mock Google OAuth response
-        self.mock_google_user_info = {
-            "sub": "12345",
-            "email": "test@example.com",
-            "email_verified": True,
-            "name": "Test User"
-        }
-        
-        # Mock Odoo response
-        self.mock_odoo_response = {
-            "result": {
-                "user_id": 1,
-                "token": "mock_odoo_token",
-                "name": "Test User",
-                "email": "test@example.com"
-            }
-        }
-
-    def tearDown(self):
-        """Clean up after each test."""
-        db.session.remove()
-        db.drop_all()
-        self.app_context.pop()
+class TestAuth(BaseTestCase):
+    """Test auth blueprint."""
 
     def test_hello_world(self):
         """Test the root endpoint."""
@@ -68,66 +23,44 @@ class TestAuth(unittest.TestCase):
     @patch('requests.get')
     def test_google_login(self, mock_get):
         """Test initiating Google login."""
-        # Mock Google discovery document
-        mock_get.return_value.json.return_value = {
-            "authorization_endpoint": "https://accounts.google.com/o/oauth2/auth"
-        }
+        mock_get.return_value.json.return_value = MOCK_GOOGLE_PROVIDER_CONFIG
         
         response = self.client.get('/auth/login/google')
         self.assertEqual(response.status_code, 200)
-        self.assertIn('auth_url', json.loads(response.data))
+        self.assertIn('auth_url', get_json_response(response))
 
     @patch('requests.post')
     @patch('requests.get')
     def test_google_callback(self, mock_get, mock_post):
         """Test Google OAuth callback."""
-        # Mock Google provider configuration
-        mock_provider_config = {
-            "authorization_endpoint": "https://accounts.google.com/o/oauth2/auth",
-            "token_endpoint": "https://oauth2.googleapis.com/token",
-            "userinfo_endpoint": "https://openidconnect.googleapis.com/v1/userinfo"
-        }
-        
-        # Mock Google token response
-        mock_token_response = {
-            "access_token": "mock_google_token",
-            "token_type": "Bearer",
-            "expires_in": 3600,
-            "scope": "openid email profile",
-            "id_token": "mock_id_token"  # Add this line
-        }
-
-        # Set up the sequence of mock responses
+        # Set up mock responses
         mock_get.side_effect = [
-            MagicMock(json=lambda: mock_provider_config),  # For provider config
-            MagicMock(json=lambda: self.mock_google_user_info)  # For user info
+            MagicMock(json=lambda: MOCK_GOOGLE_PROVIDER_CONFIG),
+            MagicMock(json=lambda: MOCK_GOOGLE_USERINFO)
         ]
         
         mock_post.return_value = MagicMock(
-            json=lambda: mock_token_response,
+            json=lambda: MOCK_GOOGLE_TOKEN_RESPONSE,
             status_code=200
         )
         
-        with self.app.test_request_context():
-            response = self.client.get(
-                '/auth/login/google/callback?code=mock_code&state=mock_state'
-            )
-            
-            self.assertEqual(response.status_code, 200)
-            data = json.loads(response.data)
-            self.assertIn('access_token', data)
-            self.assertIn('refresh_token', data)
-            self.assertIn('user_id', data)
+        response = self.client.get('/auth/login/google/callback?code=mock_code&state=mock_state')
+        self.assertEqual(response.status_code, 200)
+        data = get_json_response(response)
+        self.assertIn('access_token', data)
+        self.assertIn('refresh_token', data)
+        self.assertIn('user_id', data)
 
     def test_protected_endpoint(self):
         """Test accessing protected endpoint."""
         with self.app.test_request_context():
             access_token = create_access_token('test_user')
-            headers = {'Authorization': f'Bearer {access_token}'}
-            
-            response = self.client.get('/auth/test', headers=headers)
+            response = self.client.get(
+                '/auth/test',
+                headers=create_test_headers(access_token)
+            )
             self.assertEqual(response.status_code, 200)
-            data = json.loads(response.data)
+            data = get_json_response(response)
             self.assertIn('message', data)
             self.assertIn('user_id', data)
 
@@ -135,32 +68,112 @@ class TestAuth(unittest.TestCase):
         """Test token verification."""
         with self.app.test_request_context():
             access_token = create_access_token('test_user')
-            headers = {'Authorization': f'Bearer {access_token}'}
-            
-            response = self.client.get('/auth/verify', headers=headers)
+            response = self.client.get(
+                '/auth/verify',
+                headers=create_test_headers(access_token)
+            )
             self.assertEqual(response.status_code, 200)
-            self.assertTrue(json.loads(response.data)['valid'])
+            data = get_json_response(response)
+            self.assertTrue(data['valid'])
+            self.assertEqual(data['user_id'], 'test_user')
 
     def test_refresh_token(self):
         """Test token refresh."""
         with self.app.test_request_context():
             refresh_token = create_refresh_token('test_user')
-            headers = {'Authorization': f'Bearer {refresh_token}'}
-            
-            response = self.client.post('/auth/refresh', headers=headers)
+            response = self.client.post(
+                '/auth/refresh',
+                headers=create_test_headers(refresh_token)
+            )
             self.assertEqual(response.status_code, 200)
-            self.assertIn('access_token', json.loads(response.data))
+            data = get_json_response(response)
+            self.assertIn('access_token', data)
 
     def test_protected_endpoint_no_token(self):
         """Test accessing protected endpoint without token."""
         response = self.client.get('/auth/test')
         self.assertEqual(response.status_code, 401)
+        data = get_json_response(response)
+        self.assertIn('msg', data)
+        self.assertEqual(data['msg'], 'Invalid or missing token')
 
     def test_invalid_token(self):
         """Test using invalid token."""
-        headers = {'Authorization': 'Bearer invalid_token'}
-        response = self.client.get('/auth/test', headers=headers)
+        response = self.client.get(
+            '/auth/test',
+            headers=create_test_headers('invalid_token')
+        )
         self.assertEqual(response.status_code, 401)
+        data = get_json_response(response)
+        self.assertIn('msg', data)
+        self.assertEqual(data['msg'], 'Invalid or missing token')
+
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_google_callback_unverified_email(self, mock_get, mock_post):
+        """Test Google callback with unverified email."""
+        # Mock responses with unverified email
+        unverified_user_info = MOCK_GOOGLE_USERINFO.copy()
+        unverified_user_info['email_verified'] = False
+        
+        mock_get.side_effect = [
+            MagicMock(json=lambda: MOCK_GOOGLE_PROVIDER_CONFIG),
+            MagicMock(json=lambda: unverified_user_info)
+        ]
+        
+        mock_post.return_value = MagicMock(
+            json=lambda: MOCK_GOOGLE_TOKEN_RESPONSE,
+            status_code=200
+        )
+        
+        response = self.client.get('/auth/login/google/callback?code=mock_code&state=mock_state')
+        self.assertEqual(response.status_code, 401)
+        data = get_json_response(response)
+        self.assertIn('error', data)
+        self.assertEqual(data['error'], 'Google authentication failed')
+
+    @patch('requests.get')
+    def test_google_provider_cfg_failure(self, mock_get):
+        """Test failure to get Google provider configuration."""
+        mock_get.side_effect = Exception('Failed to get provider config')
+        
+        response = self.client.get('/auth/login/google')
+        self.assertEqual(response.status_code, 500)
+        data = get_json_response(response)
+        self.assertIn('error', data)
+
+    def test_verify_expired_token(self):
+        """Test verification of expired token."""
+        with self.app.test_request_context():
+            # Create a token that expires immediately
+            access_token = create_access_token(
+                'test_user',
+                expires_delta=timedelta(seconds=-1)  # Already expired
+            )
+            response = self.client.get(
+                '/auth/verify',
+                headers=create_test_headers(access_token)
+            )
+            self.assertEqual(response.status_code, 401)
+            data = get_json_response(response)
+            self.assertIn('msg', data)
+            self.assertIn('Token has expired', data['msg'])
+    def test_refresh_with_access_token(self):
+        """Test refresh endpoint with access token instead of refresh token."""
+        with self.app.test_request_context():
+            # Create an access token but try to use it as refresh token
+            access_token = create_access_token('test_user')
+            response = self.client.post(
+                '/auth/refresh',
+                headers=create_test_headers(access_token)
+            )
+            # JWT returns 422 for invalid token type
+            self.assertEqual(response.status_code, 422)
+            data = get_json_response(response)
+            self.assertIn('msg', data)
+            self.assertIn('Only refresh tokens are allowed', data['msg'])
+
 
 if __name__ == '__main__':
+    import unittest
     unittest.main()

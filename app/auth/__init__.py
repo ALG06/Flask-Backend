@@ -23,7 +23,12 @@ def get_google_client():
     return WebApplicationClient(current_app.config['GOOGLE_CLIENT_ID'])
 
 def get_google_provider_cfg():
-    return requests.get(GOOGLE_DISCOVERY_URL).json()
+    try:
+        response = requests.get(GOOGLE_DISCOVERY_URL)
+        return response.json()
+    except Exception as e:
+        return {'error': str(e)}
+
 
 def jwt_required_with_invalid_handling(fn):
     @wraps(fn)
@@ -38,17 +43,24 @@ def jwt_required_with_invalid_handling(fn):
 @auth_bp.route("/login/google")
 def google_login():
     """Initiates the Google OAuth2 login flow"""
-    client = get_google_client()
-    google_provider_cfg = get_google_provider_cfg()
-    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+    try:
+        client = get_google_client()
+        google_provider_cfg = get_google_provider_cfg()
+        
+        if 'error' in google_provider_cfg:
+            return jsonify({'error': 'Failed to get provider config'}), 500
+            
+        authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+        request_uri = client.prepare_request_uri(
+            authorization_endpoint,
+            redirect_uri=request.base_url + "/callback",
+            scope=["openid", "email", "profile"],
+            state="mock_state"
+        )
+        return jsonify({"auth_url": request_uri})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-    request_uri = client.prepare_request_uri(
-        authorization_endpoint,
-        redirect_uri=request.base_url + "/callback",
-        scope=["openid", "email", "profile"],
-        state="mock_state"  # Add a state parameter for testing
-    )
-    return jsonify({"auth_url": request_uri})
 
 @auth_bp.route("/login/google/callback")
 def google_callback():
