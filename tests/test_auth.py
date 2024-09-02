@@ -4,6 +4,8 @@ import json
 from app import create_app, db
 from flask_jwt_extended import create_access_token, create_refresh_token
 from config import Config
+import os
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'  # Add this line
 
 class TestConfig(Config):
     TESTING = True
@@ -16,11 +18,16 @@ class TestConfig(Config):
     JWT_HEADER_NAME = 'Authorization'
     JWT_HEADER_TYPE = 'Bearer'
     PROPAGATE_EXCEPTIONS = True
+    OAUTHLIB_INSECURE_TRANSPORT = True  # Add this line
 
 class TestAuth(unittest.TestCase):
     def setUp(self):
         """Set up test client and other test variables."""
         self.app = create_app(TestConfig)
+        
+        # Add this line to allow OAuth2 over HTTP in testing
+        self.app.config['OAUTHLIB_INSECURE_TRANSPORT'] = True
+        
         self.client = self.app.test_client()
         self.app_context = self.app.app_context()
         self.app_context.push()
@@ -86,7 +93,8 @@ class TestAuth(unittest.TestCase):
             "access_token": "mock_google_token",
             "token_type": "Bearer",
             "expires_in": 3600,
-            "scope": "openid email profile"
+            "scope": "openid email profile",
+            "id_token": "mock_id_token"  # Add this line
         }
 
         # Set up the sequence of mock responses
@@ -95,17 +103,21 @@ class TestAuth(unittest.TestCase):
             MagicMock(json=lambda: self.mock_google_user_info)  # For user info
         ]
         
-        mock_post.side_effect = [
-            MagicMock(json=lambda: mock_token_response),  # For Google token
-            MagicMock(json=lambda: self.mock_odoo_response)  # For Odoo response
-        ]
+        mock_post.return_value = MagicMock(
+            json=lambda: mock_token_response,
+            status_code=200
+        )
         
-        response = self.client.get('/auth/login/google/callback?code=mock_code')
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.data)
-        self.assertIn('access_token', data)
-        self.assertIn('refresh_token', data)
-        self.assertIn('user_id', data)
+        with self.app.test_request_context():
+            response = self.client.get(
+                '/auth/login/google/callback?code=mock_code&state=mock_state'
+            )
+            
+            self.assertEqual(response.status_code, 200)
+            data = json.loads(response.data)
+            self.assertIn('access_token', data)
+            self.assertIn('refresh_token', data)
+            self.assertIn('user_id', data)
 
     def test_protected_endpoint(self):
         """Test accessing protected endpoint."""

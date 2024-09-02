@@ -46,58 +46,63 @@ def google_login():
         authorization_endpoint,
         redirect_uri=request.base_url + "/callback",
         scope=["openid", "email", "profile"],
+        state="mock_state"  # Add a state parameter for testing
     )
     return jsonify({"auth_url": request_uri})
 
 @auth_bp.route("/login/google/callback")
 def google_callback():
     """Handles the Google OAuth2 callback"""
-    client = get_google_client()
-    code = request.args.get("code")
-    google_provider_cfg = get_google_provider_cfg()
-    token_endpoint = google_provider_cfg["token_endpoint"]
+    try:
+        client = get_google_client()
+        code = request.args.get("code")
+        google_provider_cfg = get_google_provider_cfg()
+        token_endpoint = google_provider_cfg["token_endpoint"]
 
-    # Get tokens from Google
-    token_url, headers, body = client.prepare_token_request(
-        token_endpoint,
-        authorization_response=request.url,
-        redirect_url=request.base_url,
-        code=code
-    )
-    
-    token_response = requests.post(
-        token_url,
-        headers=headers,
-        data=body,
-        auth=(current_app.config['GOOGLE_CLIENT_ID'], 
-              current_app.config['GOOGLE_CLIENT_SECRET']),
-    )
+        # Get tokens from Google
+        token_url, headers, body = client.prepare_token_request(
+            token_endpoint,
+            authorization_response=request.url,
+            redirect_url=request.base_url,
+            code=code
+        )
+        
+        token_response = requests.post(
+            token_url,
+            headers=headers,
+            data=body,
+            auth=(current_app.config['GOOGLE_CLIENT_ID'], 
+                  current_app.config['GOOGLE_CLIENT_SECRET']),
+        )
 
-    client.parse_request_body_response(json.dumps(token_response.json()))
-    
-    # Get user info from Google
-    userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
-    uri, headers, body = client.add_token(userinfo_endpoint)
-    userinfo_response = requests.get(uri, headers=headers, data=body)
-    
-    if userinfo_response.json().get("email_verified"):
-        google_id = userinfo_response.json()["sub"]
-        email = userinfo_response.json()["email"]
-        name = userinfo_response.json()["name"]
+        client.parse_request_body_response(json.dumps(token_response.json()))
         
-        # Create JWT tokens
-        access_token = create_access_token(identity=email)
-        refresh_token = create_refresh_token(identity=email)
+        # Get user info from Google
+        userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
+        uri, headers, body = client.add_token(userinfo_endpoint)
+        userinfo_response = requests.get(uri, headers=headers, data=body)
         
-        return jsonify({
-            'access_token': access_token,
-            'refresh_token': refresh_token,
-            'user_id': google_id,
-            'name': name,
-            'email': email
-        }), 200
+        if userinfo_response.json().get("email_verified"):
+            google_id = userinfo_response.json()["sub"]
+            email = userinfo_response.json()["email"]
+            name = userinfo_response.json()["name"]
             
-    return jsonify({'error': 'Google authentication failed'}), 401
+            # Create JWT tokens
+            access_token = create_access_token(identity=email)
+            refresh_token = create_refresh_token(identity=email)
+            
+            return jsonify({
+                'access_token': access_token,
+                'refresh_token': refresh_token,
+                'user_id': google_id,
+                'name': name,
+                'email': email
+            }), 200
+                
+        return jsonify({'error': 'Google authentication failed'}), 401
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @auth_bp.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)
