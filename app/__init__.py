@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from config import Config
 from .sample import sample_bp
+from .donors import donors_bp
 
 db = SQLAlchemy()
 jwt = JWTManager()
@@ -23,5 +24,7 @@ def create_app(config_class=Config):
 
     app.register_blueprint(auth_bp, url_prefix="/api")
     app.register_blueprint(sample_bp, url_prefix="/sample")
+    app.register_blueprint(donors_bp, url_prefix="/donors")
+
 
     return app

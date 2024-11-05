@@ -5,6 +5,7 @@ from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity,
 )
+from .donors import donors_bp
 from app.models import User, db
 
 auth_bp = Blueprint("auth", __name__)
@@ -43,3 +44,45 @@ def refresh():
     current_user_id = get_jwt_identity()
     access_token = create_access_token(identity=current_user_id)
     return jsonify({"access_token": access_token}), 200
+
+@donors_bp.route("/create", methods=["POST"])
+def create():
+    """
+    Para crear un Donor, se debe enviar un JSON con los siguientes campos:
+    id: int
+    name: string
+    email: string
+    phone: string
+    """
+    pass
+
+@donors_bp.route("/update", methods=["PUT"])
+def update():
+    """
+    Para actualizar un Donor, se debe enviar un JSON con los siguientes campos:
+    id: int
+    name: string
+    email: string
+    phone: string
+    """
+    pass
+
+@donors_bp.route("/delete", methods=["DELETE"])
+def delete():
+    """
+    Para eliminar un Donor, se debe enviar un JSON con el siguiente campo:
+    id: int
+    """
+    pass
+
+
+@donors_bp.route("/list", methods=["GET"])
+def list():
+    """
+    Para listar todos los Donors, se debe enviar un JSON con el siguiente campo:
+    id: int
+    """
+    pass
+
+
+
