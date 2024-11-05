@@ -5,7 +5,10 @@ from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity,
 )
+from jinja2.filters import do_attr
+
 from .donors import donors_bp
+from .donations import donations_bp
 from app.models import User, db
 
 auth_bp = Blueprint("auth", __name__)
@@ -76,13 +79,75 @@ def delete():
     pass
 
 
+# /donors/list  para hacerlo por ids
 @donors_bp.route("/list", methods=["GET"])
 def list():
     """
     Para listar todos los Donors, se debe enviar un JSON con el siguiente campo:
     id: int
+
     """
     pass
+
+
+#Donations
+@donations_bp.route("/create", methods=["POST"])
+def create():
+    """
+    Para crear una Donation, se debe enviar un JSON con los siguientes campos:
+    id: int
+    date: date
+    time: time
+    state: string
+    id_donor: int
+    id_calendar: int
+    id_point: int
+    type: string
+    pending: boolean
+    """
+    pass
+
+@donations_bp.route("/update", methods=["PUT"])
+def update():
+    """
+    Para actualizar una Donation, se debe enviar un JSON con los siguientes campos:
+    id: int
+    date: date
+    time: time
+    state: string
+    id_donor: int
+    id_calendar: int
+    id_point: int
+    type: string
+    pending: boolean
+    """
+    pass
+
+@donations_bp.route("/delete", methods=["DELETE"])
+def delete():
+    """
+    Para eliminar una Donation, se debe enviar un JSON con el siguiente campo:
+    id: int
+    """
+    pass
+
+@donations_bp.route("/list", methods=["GET"])
+def list():
+    """
+    Para listar todas las Donations, se debe enviar un JSON con el siguiente campo:
+    id: int
+    """
+    pass
+
+@donations_bp.route("/list_by_donor", methods=["GET"])
+def list_by_donor():
+    """
+    Para listar todas las Donations de un Donor, se debe enviar un JSON con el siguiente campo:
+    id: int
+    """
+    pass
+
+
 
 
 
