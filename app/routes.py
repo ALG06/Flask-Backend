@@ -9,6 +9,8 @@ from jinja2.filters import do_attr
 
 from .donors import donors_bp
 from .donations import donations_bp
+from .campaigns import campaigns_bp
+from .campaign_donors import campaign_donors_bp
 from app.models import User, db
 
 auth_bp = Blueprint("auth", __name__)
@@ -146,6 +148,111 @@ def list_by_donor():
     id: int
     """
     pass
+
+
+#Campaigns
+@campaigns_bp.route("/create", methods=["POST"])
+def create():
+    """
+    Para crear una Campaign, se debe enviar un JSON con los siguientes campos:
+    name: string
+    start_date: date
+    end_date: date
+    """
+    pass
+
+@campaigns_bp.route("/update", methods=["PUT"])
+def update():
+    """
+    Para actualizar una Campaign, se debe enviar un JSON con los siguientes campos:
+    name: string
+    start_date: date
+    end_date: date
+    """
+    pass
+
+@campaigns_bp.route("/delete", methods=["DELETE"])
+def delete():
+    """
+    Para eliminar una Campaign, se debe enviar un JSON con el siguiente campo:
+    id: int
+    """
+    pass
+
+@campaigns_bp.route("/list", methods=["GET"])
+def list():
+    """
+    Para listar todas las Campaigns, se debe enviar un JSON con el siguiente campo:
+    id: int
+    """
+    pass
+
+@campaigns_bp.route("/list_by_donor", methods=["GET"])
+def list_by_donor():
+    """
+    Para listar todas las Campaigns de un Donor, se debe enviar un JSON con el siguiente campo:
+    id: int
+    """
+    pass
+
+
+#Campaign Donors
+
+@campaign_donors_bp.route("/create", methods=["POST"])
+def create():
+    """
+    Para crear un Campaign Donor, se debe enviar un JSON con los siguientes campos:
+    campaign_id: int
+    donor_id: int
+    """
+    pass
+
+@campaign_donors_bp.route("/update", methods=["PUT"])
+def update():
+    """
+    Para actualizar un Campaign Donor, se debe enviar un JSON con los siguientes campos:
+    campaign_id: int
+    donor_id: int
+    """
+    pass
+
+@campaign_donors_bp.route("/delete", methods=["DELETE"])
+def delete():
+    """
+    Para eliminar un Campaign Donor, se debe enviar un JSON con los siguientes campos:
+    campaign_id: int
+    donor_id: int
+    """
+    pass
+
+@campaign_donors_bp.route("/list", methods=["GET"])
+def list():
+    """
+    Para listar todos los Campaign Donors, se debe enviar un JSON con los siguientes campos:
+    campaign_id: int
+    donor_id: int
+    """
+    pass
+
+@campaign_donors_bp.route("/list_by_campaign", methods=["GET"])
+def list_by_campaign():
+    """
+    Para listar todos los Campaign Donors de una Campaign, se debe enviar un JSON con el siguiente campo:
+    campaign_id: int
+    """
+    pass
+
+@campaign_donors_bp.route("/list_by_donor", methods=["GET"])
+def list_by_donor():
+    """
+    Para listar todos los Campaign Donors de un Donor, se debe enviar un JSON con el siguiente campo:
+    donor_id: int
+    """
+    pass
+
+
+
+
 
 
 
