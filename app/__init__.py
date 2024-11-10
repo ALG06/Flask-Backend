@@ -9,27 +9,24 @@ from .campaign_donors import campaign_donors_bp
 from .auth import auth_bp
 from .db import db
 
-
 jwt = JWTManager()
-
 
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
-
+    
     db.init_app(app)
     jwt.init_app(app)
-
-
+    
     @app.route("/")
     def hello_world():
         return "Hello, World!"
-
+    
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(sample_bp, url_prefix="/sample")
     app.register_blueprint(donors_bp, url_prefix="/donors")
     app.register_blueprint(donations_bp, url_prefix="/donations")
     app.register_blueprint(campaigns_bp, url_prefix="/campaigns")
     app.register_blueprint(campaign_donors_bp, url_prefix="/campaign_donors")
-
+    
     return app
