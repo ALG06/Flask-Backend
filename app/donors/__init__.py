@@ -19,6 +19,8 @@ def create():
     """
     pass
 
+
+
 @donors_bp.route("/update", methods=["PUT"])
 def update():
     """
@@ -50,5 +52,33 @@ def list():
     pass
 
 
-#Donations
+@donors_bp.route("/list_campaigns", methods=["GET"])
+def list_campaigns(supabase):
+    # Get current date in ISO format
+    from datetime import datetime
+    current_date = datetime.utcnow().date().isoformat()
 
+    # Supabase call with filter for start_date
+    response = supabase.table("campaigns") \
+        .select("*") \
+        .gte("start_date", current_date) \
+        .execute()
+
+    campaigns = response.data
+    return jsonify(campaigns), 200
+
+
+@donors_bp.route("/past_campaigns", methods=["GET"])
+def past_campaigns(supabase):
+    from datetime import datetime
+    current_date = datetime.utcnow().date().isoformat()
+
+    response = supabase.table("campaigns") \
+        .select("*") \
+        .lt("end_date", current_date) \
+        .order("start_date", desc=True) \
+        .execute()
+
+
+    campaigns = response.data
+    return jsonify(campaigns), 200
