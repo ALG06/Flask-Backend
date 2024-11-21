@@ -42,7 +42,7 @@ def create(supabase):
             "id_point": data['id_point'],
             "type": data['type'],
             "pending": data['pending'],
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(datetime.timezone.utc).isoformat()
         }).execute()
 
         return jsonify(response.data[0]), 201
