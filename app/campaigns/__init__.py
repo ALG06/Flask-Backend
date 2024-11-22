@@ -154,12 +154,9 @@ def list_by_donor(supabase):
             "campaigns.id",
             "campaigns.name",
             "campaigns.start_date",
-            "campaigns.end_date",
-            "campaigns.active"
-        ) \
+            "campaigns.end_date"        ) \
             .join("donations", "campaigns.id", "eq", "donations.id_campaign") \
             .eq("donations.id_donor", donor_id) \
-            .eq("campaigns.active", True) \
             .order('campaigns.start_date', desc=True) \
             .execute()
 
