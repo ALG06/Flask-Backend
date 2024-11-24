@@ -7,16 +7,12 @@ from .donations import donations_bp
 from .campaigns import campaigns_bp
 from .campaign_donors import campaign_donors_bp
 from .auth import auth_bp
-from .db import db
-
 jwt = JWTManager()
 
 
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
-
-    db.init_app(app)
     jwt.init_app(app)
 
     @app.route("/")

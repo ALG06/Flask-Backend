@@ -2,8 +2,9 @@ from flask import Blueprint, jsonify, request
 from datetime import datetime
 import bcrypt
 import re
-import jwt
-import os
+from app.db import supabase
+import hashlib
+
 
 
 donors_bp = Blueprint("donors", __name__)
@@ -15,7 +16,7 @@ def sample():
 
 
 @donors_bp.route("/create", methods=["POST"])
-def create(supabase):
+def create():
     """
     Para crear un Donor, se debe enviar un JSON con los siguientes campos:
     name: string
@@ -32,34 +33,15 @@ def create(supabase):
             if field not in data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
 
-        # Validate email format
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if not re.match(email_pattern, data['email']):
-            return jsonify({'error': 'Invalid email format'}), 400
-
-        # Check if email already exists
-        existing_user = supabase.table("donors") \
-            .select("*") \
-            .eq("email", data['email']) \
-            .execute()
-
-        if existing_user.data:
-            return jsonify({'error': 'Email already registered'}), 400
-
-        # Validate password length (minimum 6 characters)
-        if len(data['password']) < 6:
-            return jsonify({'error': 'Password must be at least 6 characters long'}), 400
-
-        # Hash the password
-        salt = bcrypt.gensalt()
-        hashed_password = bcrypt.hashpw(data['password'].encode('utf-8'), salt)
+        # Hash the password with SHA-256
+        hashed_password = hashlib.sha256(data['password'].encode()).hexdigest()
 
         # Create donor in Supabase
         response = supabase.table("donors").insert({
             "name": data['name'],
             "email": data['email'],
             "phone": data['phone'],
-            "password": hashed_password.decode('utf-8'),  # Store hashed password
+            "password": hashed_password,
             "created_at": datetime.utcnow().isoformat()
         }).execute()
 
@@ -75,7 +57,7 @@ def create(supabase):
 
 
 @donors_bp.route("/login", methods=["POST"])
-def login(supabase):
+def login():
     """
     Para iniciar sesión, se debe enviar un JSON con los siguientes campos:
     email: string
@@ -102,9 +84,10 @@ def login(supabase):
 
         donor = response.data
 
-        # Verify password
-        if not bcrypt.checkpw(data['password'].encode('utf-8'),
-                              donor['password'].encode('utf-8')):
+        # Hash the input password and compare
+        hashed_input_password = hashlib.sha256(data['password'].encode()).hexdigest()
+
+        if hashed_input_password != donor['password']:
             return jsonify({'error': 'Invalid email or password'}), 401
 
         # Remove password from donor object
@@ -118,36 +101,8 @@ def login(supabase):
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-
-# Simple function to check if user exists and password matches
-def verify_donor_credentials(supabase, email, password):
-    try:
-        response = supabase.table("donors") \
-            .select("*") \
-            .eq("email", email) \
-            .single() \
-            .execute()
-
-        if not response.data:
-            return None
-
-        donor = response.data
-
-        if bcrypt.checkpw(password.encode('utf-8'),
-                          donor['password'].encode('utf-8')):
-            del donor['password']
-            return donor
-
-        return None
-    except:
-        return None
-
-
-
-
 @donors_bp.route("/update", methods=["PUT"])
-def update(supabase):
+def update():
     """
     Para actualizar un Donor, se debe enviar un JSON con los siguientes campos:
     id: int
@@ -184,7 +139,7 @@ def update(supabase):
 
 
 @donors_bp.route("/delete", methods=["DELETE"])
-def delete(supabase):
+def delete():
     """
     Para eliminar un Donor, se debe enviar un JSON con el siguiente campo:
     id: int
@@ -210,32 +165,60 @@ def delete(supabase):
 
 
 @donors_bp.route("/list", methods=["GET"])
-def list(supabase):
+def list():
     """
-    Para listar todos los Donors, se debe enviar un JSON con el siguiente campo:
-    id: int (opcional - si se proporciona, filtra por ID)
+    Lista todos los donors. Parámetros opcionales:
+    id: int (filter by ID)
+    name: string (filter by name)
+    email: string (filter by email)
+    order: string (order by field, default: 'created_at')
+    order_direction: string ('asc' or 'desc', default: 'desc')
     """
     try:
+        # Get query parameters
         donor_id = request.args.get('id')
+        name = request.args.get('name')
+        email = request.args.get('email')
+        order_by = request.args.get('order', 'created_at')
+        order_direction = request.args.get('order_direction', 'desc')
 
-        query = supabase.table("donors").select("*")
+        # Start query selecting specific fields (excluding password)
+        query = supabase.table("donors").select(
+            "id",
+            "name",
+            "email",
+            "phone",
+            "created_at"
+        )
 
+        # Apply filters if provide
         if donor_id:
             query = query.eq('id', donor_id)
+        if name:
+            query = query.ilike('name', f'%{name}%')
+        if email:
+            query = query.ilike('email', f'%{email}%')
 
+        # Apply ordering
+        query = query.order(order_by, desc=(order_direction.lower() == 'desc'))
+
+        # Execute query
         response = query.execute()
 
+        # Return empty list if no donors found
         if not response.data:
             return jsonify([]), 200
 
-        return jsonify(response.data), 200
+        return jsonify({
+            'donors': response.data,
+            'total': len(response.data)
+        }), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
 @donors_bp.route("/list_campaigns", methods=["GET"])
-def list_campaigns(supabase):
+def list_campaigns():
     # Get current date in ISO format
     current_date = datetime.utcnow().date().isoformat()
 
@@ -249,7 +232,7 @@ def list_campaigns(supabase):
 
 
 @donors_bp.route("/past_campaigns", methods=["GET"])
-def past_campaigns(supabase):
+def past_campaigns():
     current_date = datetime.utcnow().date().isoformat()
 
     response = supabase.table("campaigns") \
