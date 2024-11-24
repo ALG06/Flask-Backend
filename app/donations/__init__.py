@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, request
 from datetime import datetime
+from app.db import supabase
+
 
 donations_bp = Blueprint("donations", __name__)
 
@@ -10,7 +12,7 @@ def sample():
 
 
 @donations_bp.route("/create", methods=["POST"])
-def create(supabase):
+def create():
     """
     Para crear una Donation, se debe enviar un JSON con los siguientes campos:
     id: int
@@ -52,7 +54,7 @@ def create(supabase):
 
 
 @donations_bp.route("/update", methods=["PUT"])
-def update(supabase):
+def update():
     """
     Para actualizar una Donation, se debe enviar un JSON con los siguientes campos:
     id: int
@@ -96,7 +98,7 @@ def update(supabase):
 
 
 @donations_bp.route("/delete", methods=["DELETE"])
-def delete(supabase):
+def delete():
     """
     Para eliminar una Donation, se debe enviar un JSON con el siguiente campo:
     id: int
@@ -125,7 +127,7 @@ def delete(supabase):
 
 
 @donations_bp.route("/list", methods=["GET"])
-def list(supabase):
+def list():
     """
     Para listar todas las Donations, se debe enviar un JSON con el siguiente campo:
     id: int (opcional - si se proporciona, filtra por ID)
@@ -150,7 +152,7 @@ def list(supabase):
 
 
 @donations_bp.route("/list_by_donor", methods=["GET"])
-def list_by_donor(supabase):
+def list_by_donor():
     """
     Para listar todas las Donations de un Donor, se debe enviar un JSON con el siguiente campo:
     id_donor: int
@@ -184,7 +186,7 @@ def list_by_donor(supabase):
 
 
 @donations_bp.route("/pending", methods=["GET"])
-def list_pending(supabase):
+def list_pending():
     """Lista de donaciones pendientes"""
     try:
         response = supabase.table("donations") \
@@ -200,7 +202,7 @@ def list_pending(supabase):
 
 
 @donations_bp.route("/by_date_range", methods=["GET"])
-def list_by_date_range(supabase):
+def list_by_date_range():
     """Lista de donaciones por rango de fechas"""
     try:
         start_date = request.args.get('start_date')
@@ -217,6 +219,42 @@ def list_by_date_range(supabase):
             .execute()
 
         return jsonify(response.data), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@donations_bp.route("/details/<int:donation_id>", methods=["GET"])
+def get_donation_details(donation_id):  # Add donation_id parameter here
+    """
+    Get donation details and associated food items by donation ID
+    """
+    try:
+        # No need to get from request.view_args since it's now a parameter
+        donation_response = supabase.table("donations") \
+            .select("*") \
+            .eq('id', donation_id) \
+            .single() \
+            .execute()
+
+        if not donation_response.data:
+            return jsonify({'error': 'Donation not found'}), 404
+
+        donation = donation_response.data
+
+        # Get all food items associated with this donation
+        food_response = supabase.table("food") \
+            .select("*") \
+            .eq('id_donation', donation_id) \
+            .execute()
+
+        response_data = {
+            'donation': donation,
+            'food_items': food_response.data,
+            'total_food_items': len(food_response.data)
+        }
+
+        return jsonify(response_data), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

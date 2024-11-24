@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, request
 from datetime import datetime
+from app.db import supabase
+
 
 campaign_donors_bp = Blueprint("campaign_donors", __name__)
 
@@ -10,7 +12,7 @@ def sample():
 
 
 @campaign_donors_bp.route("/create", methods=["POST"])
-def create(supabase):
+def create():
     """
     Para crear un Campaign Donor, se debe enviar un JSON con los siguientes campos:
     campaign_id: int
@@ -64,7 +66,7 @@ def create(supabase):
 
 
 @campaign_donors_bp.route("/delete", methods=["DELETE"])
-def delete(supabase):
+def delete():
     """
     Para eliminar un Campaign Donor, se debe enviar un JSON con los siguientes campos:
     campaign_id: int
@@ -92,7 +94,7 @@ def delete(supabase):
 
 
 @campaign_donors_bp.route("/list", methods=["GET"])
-def list(supabase):
+def list():
     """
     Para listar todos los Campaign Donors, se debe enviar un JSON con los siguientes campos:
     campaign_id: int (optional)
@@ -118,7 +120,7 @@ def list(supabase):
 
 
 @campaign_donors_bp.route("/list_by_campaign", methods=["GET"])
-def list_by_campaign(supabase):
+def list_by_campaign():
     """
     Para listar todos los Campaign Donors de una Campaign, se debe enviar un JSON con el siguiente campo:
     campaign_id: int
@@ -142,7 +144,7 @@ def list_by_campaign(supabase):
 
 
 @campaign_donors_bp.route("/list_by_donor", methods=["GET"])
-def list_by_donor(supabase):
+def list_by_donor():
     """
     Para listar todos los Campaign Donors de un Donor, se debe enviar un JSON con el siguiente campo:
     donor_id: int
