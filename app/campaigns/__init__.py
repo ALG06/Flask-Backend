@@ -178,6 +178,8 @@ def list_active():
         response = supabase.table("campaigns") \
             .select("*") \
             .eq('active', True) \
+            .lte('start_date', current_date) \
+            .gte('end_date', current_date) \
             .order('start_date', desc=True) \
             .execute()
 
