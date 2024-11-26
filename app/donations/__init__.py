@@ -20,7 +20,6 @@ def create():
     time: time
     state: string
     id_donor: int
-    id_calendar: int
     id_point: int
     type: string
     pending: boolean
@@ -29,7 +28,7 @@ def create():
         data = request.get_json()
 
         required_fields = ['id', 'date', 'time', 'state', 'id_donor',
-                           'id_calendar', 'id_point', 'type', 'pending']
+                            'id_point', 'type', 'pending']
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
@@ -40,7 +39,6 @@ def create():
             "time": data['time'],
             "state": data['state'],
             "id_donor": data['id_donor'],
-            "id_calendar": data['id_calendar'],
             "id_point": data['id_point'],
             "type": data['type'],
             "pending": data['pending'],
@@ -62,7 +60,6 @@ def update():
     time: time
     state: string
     id_donor: int
-    id_calendar: int
     id_point: int
     type: string
     pending: boolean
@@ -75,7 +72,7 @@ def update():
 
         update_data = {}
         updateable_fields = ['date', 'time', 'state', 'id_donor',
-                             'id_calendar', 'id_point', 'type', 'pending']
+                              'id_point', 'type', 'pending']
 
         for field in updateable_fields:
             if field in data:

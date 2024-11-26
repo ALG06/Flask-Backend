@@ -139,15 +139,13 @@ def list():
         return jsonify({'error': str(e)}), 500
 
 
-@campaigns_bp.route("/list_by_donor", methods=["GET"])
-def list_by_donor():
+@campaigns_bp.route("/list_by_donor/<int:donor_id>", methods=["GET"])
+def list_by_donor(donor_id):
     """
-    Para listar todas las Campaigns de un Donor, se debe enviar un JSON con el siguiente campo:
-    id_donor: int
+    Para listar todas las Campaigns de un Donor por su ID
+    URL: /campaigns/list_by_donor/1 (donde 1 es el id del donor)
     """
     try:
-        donor_id = request.args.get('id_donor')
-
         if not donor_id:
             return jsonify({'error': 'Missing donor ID'}), 400
 
@@ -167,8 +165,6 @@ def list_by_donor():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
-
 @campaigns_bp.route("/active", methods=["GET"])
 def list_active():
     """Lista de campañas activas"""
@@ -178,8 +174,6 @@ def list_active():
         response = supabase.table("campaigns") \
             .select("*") \
             .eq('active', True) \
-            .lte('start_date', current_date) \
-            .gte('end_date', current_date) \
             .order('start_date', desc=True) \
             .execute()
 
@@ -199,7 +193,6 @@ def list_upcoming():
             .select("*") \
             .eq('active', True) \
             .gt('start_date', current_date) \
-            .order('start_date', asc=True) \
             .execute()
 
         return jsonify(response.data), 200
