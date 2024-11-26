@@ -50,14 +50,13 @@ def create():
             if field not in data:
                 return jsonify({"error": f"Missing required field: {field}"}), 400
 
-        if data["start_date"] >= data["end_date"]:
+        if data["start_date"] > data["end_date"]:
             return jsonify({"error": "Start date must be before end date"}), 400
 
         campaign_data = {
             "name": data["name"],
             "start_date": data["start_date"],
             "end_date": data["end_date"],
-            "created_at": datetime.utcnow().isoformat(),
             "active": data.get("active", True),
             "address": data.get("address", None),
             "lat": data.get("lat", None),
@@ -108,10 +107,11 @@ def update():
     try:
         data = request.get_json()
 
-        if "id" not in data:
+        # Retrieve the campaign ID from query parameters
+        campaign_id = request.args.get('id')
+        if not campaign_id:
             return jsonify({"error": "Missing campaign ID"}), 400
 
-        campaign_id = data["id"]
         update_data = {}
 
         for field in ["name", "start_date", "end_date", "active", "description", "address", "lat", "lon"]:
