@@ -87,21 +87,30 @@ def update():
         return jsonify({'error': str(e)}), 500
 
 
-@campaigns_bp.route("/delete", methods=["DELETE"])
+@campaigns_bp.route("/", methods=["DELETE"])
 def delete():
     """
-    Para eliminar una Campaign, se debe enviar un JSON con el siguiente campo:
-    id: int
+    Deactivate a Campaign. 
+    To deactivate a campaign, provide its ID as a query parameter.
+
+    Query Parameters:
+    - id: int -> The ID of the campaign to deactivate.
+
+    Returns:
+    - 200: Success message if the campaign was deactivated.
+    - 404: Error if the campaign was not found.
+    - 400: Error if the ID parameter is missing.
+    - 500: Error message in case of failure.
     """
     try:
-        data = request.get_json()
+        campaign_id = request.args.get('id')
 
-        if 'id' not in data:
+        if not campaign_id:
             return jsonify({'error': 'Missing campaign ID'}), 400
 
         response = supabase.table("campaigns") \
-            .update({"active": False, "updated_at": datetime.utcnow().isoformat()}) \
-            .eq('id', data['id']) \
+            .update({"active": False}) \
+            .eq('id', campaign_id) \
             .execute()
 
         if not response.data:
@@ -111,6 +120,7 @@ def delete():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 
 @campaigns_bp.route("/list", methods=["GET"])
