@@ -1,7 +1,9 @@
 from flask import Blueprint, jsonify, request
 from datetime import datetime, timezone
 from app.db import supabase
-
+import qrcode  
+import io  
+import base64  
 
 donations_bp = Blueprint("donations", __name__)
 
@@ -12,27 +14,19 @@ def sample():
 
 
 @donations_bp.route("/create", methods=["POST"])
+@donations_bp.route("/create", methods=["POST"])
 def create():
-    """
-    Para crear una Donation, se debe enviar un JSON con los siguientes campos:
-    id: int
-    date: date
-    time: time
-    state: string
-    id_donor: int
-    id_point: int
-    type: string
-    pending: boolean
-    """
     try:
+        # Parse JSON data
         data = request.get_json()
 
-        required_fields = ['id', 'date', 'time', 'state', 'id_donor', 'id_point', 'type', 'pending']
+        # Validate required fields for the donation
+        required_fields = ['id', 'date', 'time', 'state', 'id_donor', 'id_point', 'type', 'pending', 'foods']
         for field in required_fields:
             if field not in data:
-                print(f'Missing required field: {field}')
                 return jsonify({'error': f'Missing required field: {field}'}), 400
 
+        # Insert donation into Supabase
         response = supabase.table("donations").insert({
             "id": data['id'],
             "date": data['date'],
@@ -42,13 +36,64 @@ def create():
             "id_point": data['id_point'],
             "type": data['type'],
             "pending": data['pending'],
-            "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
 
-        return jsonify(response.data[0]), 201
+        # Check if the insert was successful
+        if not response.data or len(response.data) == 0:
+            return jsonify({'error': 'Failed to create donation'}), 500
+
+        # Get the newly created donation ID
+        donation_id = response.data[0]['id']
+
+        # Prepare food entries for bulk insert
+        food_data_list = [
+            {
+                "id_donation": donation_id,
+                "name": food["name"],
+                "quantity": food["quantity"],
+                "category": food["category"],
+                "perishable": food["perishable"],
+            }
+            for food in data['foods']
+        ]
+
+        # Insert food items into Supabase
+        food_response = supabase.table("food").insert(food_data_list).execute()
+
+        # Check if food items were successfully inserted
+        if not food_response.data:
+            return jsonify({'error': 'Failed to insert food items'}), 500
+
+        # Generate QR Code for the donation ID
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(donation_id)
+        qr.make(fit=True)
+
+        # Save QR Code as binary data
+        img = qr.make_image(fill='black', back_color='white')
+        byte_io = io.BytesIO()
+        img.save(byte_io, 'PNG')
+        byte_io.seek(0)
+        qr_image_data = byte_io.read()
+        qr_image_data_base64 = base64.b64encode(qr_image_data).decode('utf-8')
+
+        # Update donation with QR code
+        qr_response = supabase.table("donations").update({
+            "qr": qr_image_data_base64
+        }).eq("id", donation_id).execute()
+
+        # Check if the QR code was successfully updated
+        if not qr_response.data:
+            return jsonify({'error': 'Failed to update donation with QR code'}), 500
+
+        return jsonify({"donation_id": donation_id, "qr_code": qr_image_data_base64}), 201
 
     except Exception as e:
-        print(f'Error creating donation: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
 
