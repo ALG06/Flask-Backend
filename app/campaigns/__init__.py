@@ -14,80 +14,126 @@ def sample():
 @campaigns_bp.route("/create", methods=["POST"])
 def create():
     """
-    Para crear una Campaign, se debe enviar un JSON con los siguientes campos:
-    name: string
-    start_date: date
-    end_date: date
+    Create a new campaign.
+
+    Request JSON:
+    {
+        "name": string,
+        "start_date": date,
+        "end_date": date,
+        "active": boolean (optional),
+        "address": string (optional),
+        "lat": float (optional),
+        "lon": float (optional),
+        "description": text (optional)
+    }
+
+    Response:
+    {
+        "id": int,
+        "created_at": timestamp,
+        "start_date": date,
+        "end_date": date,
+        "name": string,
+        "active": boolean,
+        "address": string,
+        "lat": float,
+        "lon": float,
+        "description": text
+    }
     """
     try:
         data = request.get_json()
 
-        required_fields = ['name', 'start_date', 'end_date']
+        required_fields = ["name", "start_date", "end_date"]
         for field in required_fields:
             if field not in data:
-                return jsonify({'error': f'Missing required field: {field}'}), 400
+                return jsonify({"error": f"Missing required field: {field}"}), 400
 
-        if data['start_date'] >= data['end_date']:
-            return jsonify({'error': 'Start date must be before end date'}), 400
+        if data["start_date"] >= data["end_date"]:
+            return jsonify({"error": "Start date must be before end date"}), 400
 
-        response = supabase.table("campaigns").insert({
-            "name": data['name'],
-            "start_date": data['start_date'],
-            "end_date": data['end_date'],
+        campaign_data = {
+            "name": data["name"],
+            "start_date": data["start_date"],
+            "end_date": data["end_date"],
             "created_at": datetime.utcnow().isoformat(),
-            "active": True
-        }).execute()
+            "active": data.get("active", True),
+            "address": data.get("address", None),
+            "lat": data.get("lat", None),
+            "lon": data.get("lon", None),
+            "description": data.get("description", None)
+        }
+
+        response = supabase.table("campaigns").insert(campaign_data).execute()
 
         return jsonify(response.data[0]), 201
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @campaigns_bp.route("/update", methods=["PUT"])
 def update():
     """
-    Para actualizar una Campaign, se debe enviar un JSON con los siguientes campos:
-    id: int
-    name: string (optional)
-    start_date: date (optional)
-    end_date: date (optional)
-    active: boolean (optional)
+    Update a campaign.
+
+    Request JSON:
+    {
+        "id": int,
+        "name": string (optional),
+        "start_date": date (optional),
+        "end_date": date (optional),
+        "active": boolean (optional),
+        "description": text (optional),
+        "address": string (optional),
+        "lat": float (optional),
+        "lon": float (optional)
+    }
+
+    Response:
+    {
+        "id": int,
+        "created_at": timestamp,
+        "start_date": date,
+        "end_date": date,
+        "name": string,
+        "active": boolean,
+        "address": string,
+        "lat": float,
+        "lon": float,
+        "description": text
+    }
     """
     try:
         data = request.get_json()
 
-        if 'id' not in data:
-            return jsonify({'error': 'Missing campaign ID'}), 400
+        if "id" not in data:
+            return jsonify({"error": "Missing campaign ID"}), 400
 
+        campaign_id = data["id"]
         update_data = {}
-        updateable_fields = ['name', 'start_date', 'end_date', 'active']
 
-        for field in updateable_fields:
+        for field in ["name", "start_date", "end_date", "active", "description", "address", "lat", "lon"]:
             if field in data:
                 update_data[field] = data[field]
 
-        if 'start_date' in update_data and 'end_date' in update_data:
-            if update_data['start_date'] >= update_data['end_date']:
-                return jsonify({'error': 'Start date must be before end date'}), 400
+        if "start_date" in update_data and "end_date" in update_data:
+            if update_data["start_date"] >= update_data["end_date"]:
+                return jsonify({"error": "Start date must be before end date"}), 400
 
-        update_data['updated_at'] = datetime.utcnow().isoformat()
-
-        response = supabase.table("campaigns") \
-            .update(update_data) \
-            .eq('id', data['id']) \
-            .execute()
+        response = supabase.table("campaigns").update(update_data).eq("id", campaign_id).execute()
 
         if not response.data:
-            return jsonify({'error': 'Campaign not found'}), 404
+            return jsonify({"error": "Campaign not found"}), 404
 
         return jsonify(response.data[0]), 200
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@campaigns_bp.route("/", methods=["DELETE"])
+@campaigns_bp.route("/delete", methods=["DELETE"])
 def delete():
     """
     Deactivate a Campaign. 
