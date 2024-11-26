@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db import supabase
 
 
@@ -27,10 +27,10 @@ def create():
     try:
         data = request.get_json()
 
-        required_fields = ['id', 'date', 'time', 'state', 'id_donor',
-                            'id_point', 'type', 'pending']
+        required_fields = ['id', 'date', 'time', 'state', 'id_donor', 'id_point', 'type', 'pending']
         for field in required_fields:
             if field not in data:
+                print(f'Missing required field: {field}')
                 return jsonify({'error': f'Missing required field: {field}'}), 400
 
         response = supabase.table("donations").insert({
@@ -42,12 +42,13 @@ def create():
             "id_point": data['id_point'],
             "type": data['type'],
             "pending": data['pending'],
-            "created_at": datetime.now(datetime.timezone.utc).isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }).execute()
 
         return jsonify(response.data[0]), 201
 
     except Exception as e:
+        print(f'Error creating donation: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
 
@@ -60,6 +61,7 @@ def update():
     time: time
     state: string
     id_donor: int
+    id_calendar: int
     id_point: int
     type: string
     pending: boolean
@@ -72,7 +74,7 @@ def update():
 
         update_data = {}
         updateable_fields = ['date', 'time', 'state', 'id_donor',
-                              'id_point', 'type', 'pending']
+                             'id_calendar', 'id_point', 'type', 'pending']
 
         for field in updateable_fields:
             if field in data:
