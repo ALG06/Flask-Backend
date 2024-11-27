@@ -54,34 +54,50 @@ def update(point_id):
     lon: float (optional)
     """
     try:
+        # Get the JSON data from the request
         data = request.get_json()
 
         if not data:
             return jsonify({'error': 'No data provided'}), 400
 
-        # Create update dict with only provided fields
+        # Create a dictionary with only the provided fields
         update_data = {}
         updatable_fields = ['name', 'address', 'lat', 'lon']
 
         for field in updatable_fields:
             if field in data:
-                update_data[field] = data[field]
+                # Validate and convert lat/lon to float if provided
+                if field in ['lat', 'lon']:
+                    try:
+                        update_data[field] = float(data[field])
+                    except ValueError:
+                        return jsonify({'error': f'Invalid format for {field}, must be a float'}), 400
+                else:
+                    update_data[field] = data[field]
 
-        # Update donation point in Supabase
-        response = supabase.table("donation_points") \
-            .update(update_data) \
-            .eq('id', point_id) \
-            .execute()
+        # Ensure there's something to update
+        if not update_data:
+            return jsonify({'error': 'No updatable fields provided'}), 400
 
-        if not response.data:
-            return jsonify({'error': 'Donation point not found'}), 404
 
-        return jsonify(response.data[0]), 200
+        # Update the donation point in Supabase
+        response = (supabase.table("donation_points")
+            .update(update_data)
+            .eq("id", point_id)
+            .execute())
 
+        # Check if the update was successful
+        if not response.data or len(response.data) == 0:
+            return jsonify({'error': f'Donation point not found'}), 404
+
+        return jsonify({'message': 'Donation point updated successfully', 'data': response.data[0]}), 200
+
+    except ValueError as ve:
+        return jsonify({'error': f'Invalid data format: {str(ve)}'}), 400
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
+        # Add detailed logging for debugging
+        print(f"Error updating donation point: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred while updating donation point'}), 500
 @donation_points_bp.route("/delete/<int:point_id>", methods=["DELETE"])
 def delete(point_id):
     """

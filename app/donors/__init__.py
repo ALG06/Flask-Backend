@@ -243,3 +243,50 @@ def past_campaigns():
 
     campaigns = response.data
     return jsonify(campaigns), 200
+
+
+@donors_bp.route("/stats/<int:donor_id>", methods=["GET"])
+def get_donor_counts(donor_id):
+    """
+    Get count of donations, campaigns, and total food quantity (in KG) for a donor
+    """
+    try:
+        # Get donations count
+        donations_count = supabase.table("donations") \
+            .select("*", count="exact") \
+            .eq('id_donor', donor_id) \
+            .execute()
+
+        # Get campaigns count from campaign_donors table
+        campaigns_count = supabase.table("campaign_donors") \
+            .select("*", count="exact") \
+            .eq('donor_id', donor_id) \
+            .execute()
+
+        # Get all food entries for donor's donations and sum their quantities
+        donations = supabase.table("donations") \
+            .select("id") \
+            .eq('id_donor', donor_id) \
+            .execute()
+
+        total_kg = 0
+        if donations.data:
+            donation_ids = [d['id'] for d in donations.data]
+
+            food_quantities = supabase.table("food") \
+                .select("quantity") \
+                .in_("id_donation", donation_ids) \
+                .execute()
+
+            # Sum quantities and convert to KG (divide by 100)
+            total_kg = sum([item['quantity'] for item in food_quantities.data]) / 100
+
+        return jsonify({
+            'donor_id': donor_id,
+            'total_donations': donations_count.count,
+            'total_campaigns': campaigns_count.count,
+            'total_kg_donated': round(total_kg, 2)  # Round to 2 decimal places
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
