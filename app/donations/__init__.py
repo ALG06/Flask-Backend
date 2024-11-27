@@ -304,3 +304,35 @@ def get_donation_details(donation_id):  # Add donation_id parameter here
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@donations_bp.route("/qrcode/<int:donation_id>", methods=["GET"])
+def get_qr_code(donation_id):  # Add donation_id parameter here
+    """
+    Get donation qr code by ID
+    """
+
+    try:
+        # No need to get from request.view_args since it's now a parameter
+        print("hello")
+        donation_response = supabase.table("donations") \
+            .select("*") \
+            .eq('id', donation_id) \
+            .eq('pending', True) \
+            .single() \
+            .execute()
+        print(donation_response)
+
+        if not donation_response.data:
+            return jsonify({'error': 'Donation not found or is expired'}), 404
+
+        qr_code = donation_response.data.get("qr")
+        if not qr_code:
+            return jsonify({'error': 'QR code not available for this donation'}), 404
+
+        # Return the QR code
+        return jsonify({
+            'qr': qr_code,
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
