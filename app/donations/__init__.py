@@ -7,13 +7,10 @@ import base64
 
 donations_bp = Blueprint("donations", __name__)
 
-
 @donations_bp.route("", methods=["GET"])
 def sample():
     return jsonify({"message": "Donations route"}), 200
 
-
-@donations_bp.route("/create", methods=["POST"])
 @donations_bp.route("/create", methods=["POST"])
 def create():
     try:
