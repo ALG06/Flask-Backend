@@ -119,7 +119,7 @@ def update():
                 update_data[field] = data[field]
 
         if "start_date" in update_data and "end_date" in update_data:
-            if update_data["start_date"] >= update_data["end_date"]:
+            if update_data["start_date"] > update_data["end_date"]:
                 return jsonify({"error": "Start date must be before end date"}), 400
 
         response = supabase.table("campaigns").update(update_data).eq("id", campaign_id).execute()
