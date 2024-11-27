@@ -125,8 +125,6 @@ def update():
             if field in data:
                 update_data[field] = data[field]
 
-        update_data['updated_at'] = datetime.utcnow().isoformat()
-
         response = supabase.table("donations") \
             .update(update_data) \
             .eq('id', data['id']) \
@@ -278,6 +276,7 @@ def get_donation_details(donation_id):  # Add donation_id parameter here
         donation_response = supabase.table("donations") \
             .select("*") \
             .eq('id', donation_id) \
+            .eq('pending', True) \
             .single() \
             .execute()
 
@@ -291,10 +290,16 @@ def get_donation_details(donation_id):  # Add donation_id parameter here
             .select("*") \
             .eq('id_donation', donation_id) \
             .execute()
-
+        
+        donor_response = supabase.table("donors") \
+            .select("name, phone") \
+            .eq('id', donation['id_donor']) \
+            .execute()
+        
         response_data = {
             'donation': donation,
             'food_items': food_response.data,
+            'donor': donor_response.data,
             'total_food_items': len(food_response.data)
         }
 
