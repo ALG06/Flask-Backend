@@ -6,6 +6,7 @@ from .donors import donors_bp
 from .donations import donations_bp
 from .campaigns import campaigns_bp
 from .campaign_donors import campaign_donors_bp
+from .donation_points import donation_points_bp
 from .auth import auth_bp
 jwt = JWTManager()
 
@@ -25,5 +26,7 @@ def create_app(config_class=Config):
     app.register_blueprint(donations_bp, url_prefix="/donations")
     app.register_blueprint(campaigns_bp, url_prefix="/campaigns")
     app.register_blueprint(campaign_donors_bp, url_prefix="/campaign_donors")
+    app.register_blueprint(donation_points_bp, url_prefix="/donation_points")
+
 
     return app
