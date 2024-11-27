@@ -168,11 +168,13 @@ def delete():
 @donations_bp.route("/list", methods=["GET"])
 def list():
     """
-    Para listar todas las Donations, se debe enviar un JSON con el siguiente campo:
+    Para listar todas las Donations, se debe enviar un JSON con los siguientes campos:
     id: int (opcional - si se proporciona, filtra por ID)
+    details: bool (opcional - si se proporciona, obtiene más detalles)
     """
     try:
         donation_id = request.args.get('id')
+        details = request.args.get('details', 'false').lower() == 'true'
 
         query = supabase.table("donations").select("*")
 
@@ -184,7 +186,27 @@ def list():
         if not response.data:
             return jsonify([]), 200
 
-        return jsonify(response.data), 200
+        donations = response.data
+
+        if details:
+            for donation in donations:
+                # Get all food items associated with this donation
+                food_response = supabase.table("food") \
+                    .select("*") \
+                    .eq('id_donation', donation['id']) \
+                    .execute()
+
+                # Get donor information
+                donor_response = supabase.table("donors") \
+                    .select("name, phone, email") \
+                    .eq('id', donation['id_donor']) \
+                    .execute()
+
+                donation['food_items'] = food_response.data
+                donation['donor'] = donor_response.data
+                donation['total_food_items'] = len(food_response.data)
+
+        return jsonify(donations), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -263,19 +285,21 @@ def list_by_date_range():
         return jsonify({'error': str(e)}), 500
 
 
-@donations_bp.route("/details/<int:donation_id>", methods=["GET"])
-def get_donation_details(donation_id):  # Add donation_id parameter here
+@donations_bp.route("/details/<int:donation_id>", defaults={'pending_status': None}, methods=["GET"])
+@donations_bp.route("/details/<int:donation_id>/<pending_status>", methods=["GET"])
+def get_donation_details(donation_id, pending_status):
     """
-    Get donation details and associated food items by donation ID
+    Get donation details and associated food items by donation ID and optional pending status
     """
     try:
-        # No need to get from request.view_args since it's now a parameter
-        donation_response = supabase.table("donations") \
-            .select("*") \
-            .eq('id', donation_id) \
-            .eq('pending', True) \
-            .single() \
-            .execute()
+        query = supabase.table("donations").select("*").eq('id', donation_id)
+
+        # Apply pending status filter if provided
+        if pending_status is not None:
+            pending = pending_status.lower() == 'true'
+            query = query.eq('pending', pending)
+
+        donation_response = query.single().execute()
 
         if not donation_response.data:
             return jsonify({'error': 'Donation not found'}), 404
@@ -289,7 +313,7 @@ def get_donation_details(donation_id):  # Add donation_id parameter here
             .execute()
         
         donor_response = supabase.table("donors") \
-            .select("name, phone") \
+            .select("name, phone, email") \
             .eq('id', donation['id_donor']) \
             .execute()
         

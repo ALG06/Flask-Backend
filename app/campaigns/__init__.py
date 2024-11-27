@@ -155,7 +155,7 @@ def delete():
             return jsonify({'error': 'Missing campaign ID'}), 400
 
         response = supabase.table("campaigns") \
-            .update({"active": False}) \
+            .delete() \
             .eq('id', campaign_id) \
             .execute()
 
