@@ -98,6 +98,8 @@ def update(point_id):
         # Add detailed logging for debugging
         print(f"Error updating donation point: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred while updating donation point'}), 500
+
+        
 @donation_points_bp.route("/delete/<int:point_id>", methods=["DELETE"])
 def delete(point_id):
     """

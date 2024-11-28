@@ -8,11 +8,13 @@ from .campaigns import campaigns_bp
 from .campaign_donors import campaign_donors_bp
 from .donation_points import donation_points_bp
 from .auth import auth_bp
+from flask_cors import CORS
 jwt = JWTManager()
 
 
 def create_app(config_class=Config):
     app = Flask(__name__)
+    CORS(app)
     app.config.from_object(config_class)
     jwt.init_app(app)
 

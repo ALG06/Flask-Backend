@@ -154,6 +154,13 @@ def delete():
         if not campaign_id:
             return jsonify({'error': 'Missing campaign ID'}), 400
 
+        # First, delete related records in the campaign_donors table
+        supabase.table("campaign_donors") \
+            .delete() \
+            .eq('campaign_id', campaign_id) \
+            .execute()
+
+        # Now, delete the campaign
         response = supabase.table("campaigns") \
             .delete() \
             .eq('id', campaign_id) \
@@ -162,7 +169,7 @@ def delete():
         if not response.data:
             return jsonify({'error': 'Campaign not found'}), 404
 
-        return jsonify({'message': 'Campaign deactivated successfully'}), 200
+        return jsonify({'message': 'Campaign and related donors deleted successfully'}), 200
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
